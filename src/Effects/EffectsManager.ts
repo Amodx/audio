@@ -1,12 +1,12 @@
 import { Audio } from "../Audio.js";
 import { BuiltInReverbList, EffectData } from "../Meta/EffectTypes.js";
 
-export const EffectsManager = {
-  builtInReverbBuffers: <Record<string, AudioBuffer>>{},
-  customReverbBuffers: <Record<string, AudioBuffer>>{},
-  async preloadReverbBuffers(
+export class EffectsManager {
+  static builtInReverbBuffers: Record<string, AudioBuffer> = {};
+  static customReverbBuffers: Record<string, AudioBuffer> = {};
+  static async preloadReverbBuffers(
     builtInReverbs: BuiltInReverbList[],
-    customReverbs?: string[]
+    customReverbs?: string[],
   ) {
     for (const rid of builtInReverbs) {
       const path = Audio.constants.getBuiltInReverbPath(rid);
@@ -20,9 +20,9 @@ export const EffectsManager = {
         this.customReverbBuffers[rid] = buffer;
       }
     }
-  },
+  }
 
-  _getReverbBuffer(effectsData: EffectData) {
+  static _getReverbBuffer(effectsData: EffectData) {
     if (effectsData.reverb) {
       if (!effectsData.reverb.builtIn && !effectsData.reverb.custom) {
         throw new Error(`Must supply a reverb id.`);
@@ -31,7 +31,7 @@ export const EffectsManager = {
         const buffer = this.builtInReverbBuffers[effectsData.reverb.builtIn];
         if (!buffer) {
           throw new Error(
-            `Built-In Reverb: ${effectsData.reverb.builtIn} is not loaded.`
+            `Built-In Reverb: ${effectsData.reverb.builtIn} is not loaded.`,
           );
         }
         return buffer;
@@ -40,15 +40,19 @@ export const EffectsManager = {
         const buffer = this.customReverbBuffers[effectsData.reverb.custom];
         if (!buffer) {
           throw new Error(
-            `Custon Reverb: ${effectsData.reverb.custom} is not loaded.`
+            `Custon Reverb: ${effectsData.reverb.custom} is not loaded.`,
           );
         }
         return buffer;
       }
     }
-  },
+  }
 
-  getEffectsNode(effectsData: EffectData, source: AudioNode, master: GainNode,nodes : AudioNode[]) {
+  static getEffectsNode(
+    effectsData: EffectData,
+    source: AudioNode,
+    master: GainNode,
+  ) {
     if (effectsData.reverb) {
       const buffer = this._getReverbBuffer(effectsData);
       if (buffer) {
@@ -58,8 +62,7 @@ export const EffectsManager = {
         reverb.connect(reverbGain);
         reverbGain.gain.value = effectsData.reverb.level;
         reverbGain.connect(master);
-        nodes.push(reverb,reverbGain);
       }
     }
-  },
-};
+  }
+}

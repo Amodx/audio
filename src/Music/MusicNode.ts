@@ -5,44 +5,33 @@ import { EffectNodes, MusicTrackData } from "../Meta/AudioTypes.js";
 export class MusicNode {
   audioNode: MediaElementAudioSourceNode | null = null;
   audio: HTMLAudioElement | null = null;
-  master: GainNode | null = null;
+  gain: GainNode | null = null;
 
   constructor(public data: MusicTrackData) {}
 
   async play(load = true) {
-    if(!Audio._initalized) return;
+    if (!Audio._initalized) return;
     if (load) {
       await this.load();
     }
-    if (!this.audio || !this.audioNode || !this.master) {
+    if (!this.audio || !this.audioNode || !this.gain) {
       throw new Error(
-        `${this.data.id} is not loaded. Must load before playing`
+        `${this.data.id} is not loaded. Must load before playing`,
       );
     }
     if (this.data.loop) {
       this.audio.loop = true;
     }
-    const channel = Audio.channels.getChannel(this.data.channel);
 
-    const finalLevel = AudioChannel.getNodeLevel(
-      this.data.level,
-      channel._level
-    );
-    this.master.gain.value = finalLevel;
+    this.gain.gain.value = this.data.level;
     this.audio.play();
   }
 
   async fadeIn(interval: number, steps: number) {
-    if(!Audio._initalized) return;
-    if (!this.master) await this.load();
+    if (!Audio._initalized) return;
+    if (!this.gain) await this.load();
 
-    const channel = Audio.channels.getChannel(this.data.channel);
-
-    const finalLevel = AudioChannel.getNodeLevel(
-      this.data.level,
-      channel._level
-    );
-    this.master!.gain.value = 0;
+    this.gain!.gain.value = 0;
 
     this.audio!.currentTime = 0;
     this.audio!.play();
@@ -52,43 +41,38 @@ export class MusicNode {
 
     return new Promise((resolve) => {
       const inte = setInterval(() => {
-        if (!this.master || !this.audio) return resolve(false);
+        if (!this.gain || !this.audio) return resolve(false);
         if (this.audio!.paused) return resolve(false);
-        if (this.master!.gain.value >= finalLevel) {
-          this.master!.gain.value = finalLevel;
+        if (this.gain!.gain.value >= this.data.level) {
+          this.gain!.gain.value = this.data.level;
           resolve(true);
           clearInterval(inte);
           return;
         }
 
-        this.master!.gain.value += finalLevel / steps;
+        this.gain!.gain.value += this.data.level / steps;
       }, interval);
     });
   }
 
   async fadeOut(interval: number, steps: number) {
-    if(!Audio._initalized) return;
-    if (!this.master) return false;
-    const channel = Audio.channels.getChannel(this.data.channel);
+    if (!Audio._initalized) return;
+    if (!this.gain) return false;
 
-    const finalLevel = AudioChannel.getNodeLevel(
-      this.data.level,
-      channel._level
-    );
-    this.master!.gain.value = finalLevel;
+    this.gain!.gain.value = this.data.level;
 
     return new Promise((resolve) => {
       const inte = setInterval(() => {
-        if (!this.master || !this.audio) return resolve(false);
+        if (!this.gain || !this.audio) return resolve(false);
         if (this.audio!.paused) return resolve(false);
-        if (this.master!.gain.value <= 0) {
-          this.master!.gain.value = 0;
+        if (this.gain!.gain.value <= 0) {
+          this.gain!.gain.value = 0;
           resolve(true);
           clearInterval(inte);
           this.puase();
           return;
         }
-        this.master!.gain.value -= finalLevel / steps;
+        this.gain!.gain.value -= this.data.level / steps;
       }, interval);
     });
   }
@@ -113,8 +97,8 @@ export class MusicNode {
   unlLoad() {
     this.audioNode = null;
     this.audio = null;
-    if (this.master) this.master.dispatchEvent(Audio.api._dissconectEvent);
-    this.master = null;
+    if (this.gain) this.gain.dispatchEvent(Audio.api._dissconectEvent);
+    this.gain = null;
   }
 
   load() {
@@ -124,10 +108,10 @@ export class MusicNode {
     this.audioNode = nodes.audioNode;
     this.audio = nodes.audio;
 
-    this.master = Audio.api.createGain(this.data.level);
-    this.audioNode.connect(this.master);
+    this.gain = Audio.api.createGain(this.data.level);
+    this.audioNode.connect(this.gain);
 
-    channel.add(this.master, this.data.level);
+    channel.add(this.gain);
 
     return new Promise((resolve) => {
       nodes.audio.addEventListener("canplay", () => {

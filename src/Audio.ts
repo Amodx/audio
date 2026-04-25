@@ -16,6 +16,11 @@ export class Audio {
   static channels = AudioChannelManager;
   static _initalized = false;
 
+
+  static update(){
+    this.sfx.update();
+  }
+
   static async init() {
     Audio.api.init();
     this._initalized = true;

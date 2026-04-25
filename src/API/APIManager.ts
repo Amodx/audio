@@ -3,59 +3,59 @@ import {
   DynamicCompressorData,
   PannerNodeData,
 } from "../Meta/APITypes";
-import { MusicTrackNodes } from "../Meta/AudioTypes";
 
-const context = new AudioContext();
-const mainChanel = context.createGain();
-mainChanel.gain.value = 1;
-mainChanel.connect(context.destination);
-const mainCompression = context.createDynamicsCompressor();
-let connected = false;
-mainCompression.threshold.value = -50;
-mainCompression.knee.value = 40;
-mainCompression.ratio.value = 12;
-mainCompression.attack.value = 0;
-mainCompression.release.value = 0.25;
-mainCompression.release.value = 0.25;
-export const APIManager = {
-  context: context,
+export class APIManager {
+  static context: AudioContext;
 
-  _dissconectEvent: new Event("disconnect"),
+  static _dissconectEvent = new Event("disconnect");
 
-  compressionEnabled: true,
-  compression: mainCompression,
-  main: mainChanel,
+  static compressionEnabled = true;
+  static compression: DynamicsCompressorNode;
+  static main: GainNode;
 
-  pannerNodeDefaults: <Partial<PannerNodeData>>{
+  static pannerNodeDefaults: Partial<PannerNodeData> = {
     panningModel: "HRTF",
     distanceModel: "exponential",
-  },
+  };
 
-  init() {
-    if (!APIManager.context) {
+  static init() {
+    if (typeof AudioContext === "undefined") {
       throw new Error(
-        "AudioContext is not found. This browser is not suppourted."
+        "@amodx/auido: AudioContext is not found. This browser is not suppourted.",
       );
     }
-  },
 
-  connectToMain(node: AudioNode) {
+    this.context = new AudioContext();
+
+    this.main = this.context.createGain();
+    this.main.gain.value = 1;
+
     if (this.compressionEnabled) {
-      node.connect(this.compression);
-      if (!connected) this.compression.connect(context.destination);
-      connected = true;
-      return;
-    }
-    node.connect(context.destination);
-  },
+      this.compression = this.context.createDynamicsCompressor();
+      this.compression.threshold.value = -24;
+      this.compression.knee.value = 30;
+      this.compression.ratio.value = 4;
+      this.compression.attack.value = 0.003;
+      this.compression.release.value = 0.25;
 
-  createAudioBufferSource(buffer: AudioBuffer) {
-    const source = context.createBufferSource();
+      this.main.connect(this.compression);
+      this.compression.connect(this.context.destination);
+    } else {
+      this.main.connect(this.context.destination);
+    }
+  }
+
+  static connectToMain(node: AudioNode) {
+    node.connect(this.main);
+  }
+
+  static createAudioBufferSource(buffer: AudioBuffer) {
+    const source = this.context.createBufferSource();
     source.buffer = buffer;
     return source;
-  },
+  }
 
-  createDynamicCompressor(data: DynamicCompressorData) {
+  static createDynamicCompressor(data: DynamicCompressorData) {
     const comp = this.context.createDynamicsCompressor();
     if (data.threshold != undefined) {
       comp.threshold.value = data.threshold;
@@ -72,32 +72,36 @@ export const APIManager = {
     if (data.release != undefined) {
       comp.release.value = data.release;
     }
-  },
+    return comp;
+  }
 
   /*
   https://developer.mozilla.org/en-US/docs/Web/API/WaveShaperNode
   */
-  createWaveShapeNode(curve: Float32Array, oversample?: OverSampleType) {
+  static createWaveShapeNode(
+    curve: Float32Array<any>,
+    oversample?: OverSampleType,
+  ) {
     const node = this.context.createWaveShaper();
     node.curve = curve;
     if (oversample) {
       node.oversample = oversample;
     }
-  },
+  }
 
-  createGain(value: number = 1) {
+  static createGain(value: number = 1) {
     const gain = this.context.createGain();
     gain.gain.value = value;
     return gain;
-  },
+  }
 
-  createDelayNode(delayTime: number) {
+  static createDelayNode(delayTime: number) {
     const delay = this.context.createDelay();
     delay.delayTime.value = delayTime;
     return delay;
-  },
+  }
 
-  createBiQuadFilterNode(data: BiquadFilterNodeData) {
+  static createBiQuadFilterNode(data: BiquadFilterNodeData) {
     const filter = this.context.createBiquadFilter();
     filter.type = data.type;
     filter.frequency.value = data.frequency;
@@ -108,44 +112,44 @@ export const APIManager = {
       filter.detune.value = data.detune;
     }
     return filter;
-  },
+  }
 
-  createConvolver(buffer: AudioBuffer) {
+  static createConvolver(buffer: AudioBuffer) {
     const convolver = this.context.createConvolver();
     convolver.buffer = buffer;
     return convolver;
-  },
+  }
 
-  createPannerNode(nodeData: Partial<PannerNodeData>) {
+  static createPannerNode(nodeData?: Partial<PannerNodeData>) {
     const context = this.context;
-    if (!nodeData.distanceModel) {
+    if (nodeData?.distanceModel) {
       nodeData.distanceModel = this.pannerNodeDefaults.distanceModel;
     }
-    if (!nodeData.panningModel) {
+    if (nodeData?.panningModel) {
       nodeData.panningModel = this.pannerNodeDefaults.panningModel;
     }
 
     return new PannerNode(context, nodeData);
-  },
+  }
 
-  async loadAudioBuffer(path: string): Promise<AudioBuffer> {
+  static async loadAudioBuffer(path: string): Promise<AudioBuffer> {
     const response = await fetch(path);
     const buffer = await response.arrayBuffer();
     const source = await APIManager.context.decodeAudioData(buffer);
     return source;
-  },
+  }
 
-  async creteAudioBuffer(data: Uint8Array): Promise<AudioBuffer> {
+  static async creteAudioBuffer(data: Uint8Array<any>): Promise<AudioBuffer> {
     const source = await APIManager.context.decodeAudioData(data.buffer);
     return source;
-  },
+  }
 
-  createAudioElementNode(path: string) {
+  static createAudioElementNode(path: string) {
     const audio = new Audio(path);
     const audioNode = APIManager.context.createMediaElementSource(audio);
     return {
       audio,
       audioNode,
     };
-  },
-};
+  }
+}

@@ -2,49 +2,43 @@ import { Audio } from "../Audio.js";
 import { SFXData, SFXPlayOptions } from "../Meta/AudioTypes.js";
 import { SFXNode } from "./SFXNode.js";
 
-export const SFXMAnager = {
-  _sfxCount: 0,
-  _sfxPalette: <Record<string, number>>{},
-  _sfxMap: <Record<number, string>>{},
+export class SFXMAnager {
+  static _sfxData: Record<string, SFXData> = {};
+  static _sfxNodeMap = new Map<string, SFXNode>();
+  static _sfxNodes: SFXNode[] = [];
+  static _sfxChannels: Record<string, GainNode> = {};
 
-  _sfxData: <Record<string, SFXData>>{},
+  static update() {
+    for (let i = 0; i < this._sfxNodes.length; i++) {
+      this._sfxNodes[i].update();
+    }
+  }
 
-  _sfxNodes: new Map<string, SFXNode>(),
-
-  _sfxChannels: <Record<string, GainNode>>{},
-
-  _sfxPlayCount: new Map<string | number, number>(),
-
-  play(sfxId: string | number, options?: SFXPlayOptions) {
-    if(!Audio._initalized) return;
+  static play(sfxId: string, options?: SFXPlayOptions) {
+    if (!Audio._initalized) return;
     const node = this.getSFXNode(sfxId);
     node.play(options);
-  },
+  }
 
-  getSFXNode(sfxId: string | number) {
-    const node = this._sfxNodes.get(
-      typeof sfxId == "string" ? sfxId : this._sfxMap[sfxId as number]
-    );
+  static getSFXNode(sfxId: string) {
+    const node = this._sfxNodeMap.get(sfxId);
 
     if (!node) {
       throw new Error(
-        `DAE: SFX with ID: ${sfxId} does audio nodes are not created.`
+        `@amodx/audio: SFX with ID: ${sfxId} does audio nodes are not created.`,
       );
     }
 
     return node;
-  },
+  }
 
-  registerSFX(sfxData: SFXData[]) {
+  static registerSFX(sfxData: SFXData[]) {
     for (const sfx of sfxData) {
       this._sfxData[sfx.id] = sfx;
-      this._sfxPalette[sfx.id] = this._sfxCount;
-      this._sfxMap[this._sfxCount] = sfx.id;
-      this._sfxCount++;
     }
-  },
+  }
 
-  async createSFXNodes() {
+  static async createSFXNodes() {
     for (const sfxKey of Object.keys(this._sfxData)) {
       const sfx = this._sfxData[sfxKey];
       const channel = Audio.channels.getChannel(sfx.channel);
@@ -56,10 +50,13 @@ export const SFXMAnager = {
         buffer = await Audio.api.creteAudioBuffer(sfx.rawData);
       }
       if (!buffer) {
-        throw new Error(`${sfx.id} must have a path or raw data set`);
+        throw new Error(
+          `@amodx/audio: ${sfx.id} must have a path or raw data set`,
+        );
       }
-
-      this._sfxNodes.set(sfx.id, new SFXNode(channel, sfx, buffer));
+      const node = new SFXNode(channel, sfx, buffer);
+      this._sfxNodes.push(node);
+      this._sfxNodeMap.set(sfx.id, node);
     }
-  },
-};
+  }
+}
